@@ -293,4 +293,4 @@ if __name__ == "__main__":
     ]
     # main(params)
 
-    main(sys.argv)
+    main(sys.argv[1:])
