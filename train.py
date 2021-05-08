@@ -171,18 +171,18 @@ def main(params):
     parser.add_argument(
         "--context_path",
         type=str,
-        default="resnet101",
+        default="resnet18",
         help="The context path model you are using, resnet18,resnet50, resnet101.",
     )
     parser.add_argument(
-        "--learning_rate", type=float, default=0.01, help="learning rate used for train"
+        "--learning_rate", type=float, default=1e-3, help="learning rate used for train"
     )
     parser.add_argument(
-        "--data", type=str, default="data", help="path of training data"
+        "--data", type=str, default="/gdrive/MyDrive/data", help="path of training data"
     )
     parser.add_argument("--num_workers", type=int, default=4, help="num of workers")
     parser.add_argument(
-        "--num_classes", type=int, default=32, help="num of object classes (with void)"
+        "--num_classes", type=int, default=21, help="num of object classes (with void)"
     )
     parser.add_argument(
         "--cuda", type=str, default="0", help="GPU ids used for training"
@@ -202,7 +202,7 @@ def main(params):
     parser.add_argument(
         "--optimizer",
         type=str,
-        default="rmsprop",
+        default="adam",
         help="optimizer, support rmsprop, sgd, adam",
     )
     parser.add_argument(
@@ -267,16 +267,27 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs", "30",
-        "--learning_rate", "1e-3",
-        "--data", "/gdrive/MyDrive/data",
-        "--num_workers", "8",
-        "--num_classes", "21",
-        "--cuda", "0",
-        "--use_gpu", "False",
-        "--batch_size", "16",
-        "--save_model_path", "./checkpoints_18_sgd",
-        "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
-        "--optimizer", "sgd",
+        "--num_epochs",
+        "16",
+        "--learning_rate",
+        "1e-3",
+        "--data",
+        "/gdrive/MyDrive/data",
+        "--num_workers",
+        "8",
+        "--num_classes",
+        "21",
+        "--cuda",
+        "0",
+        "--use_gpu",
+        "False",
+        "--batch_size",
+        "24",
+        "--save_model_path",
+        "./checkpoints_18_sgd",
+        "--context_path",
+        "resnet18",  # set resnet18,resnet50 or resnet101
+        "--optimizer",
+        "sgd",
     ]
     main(params)
