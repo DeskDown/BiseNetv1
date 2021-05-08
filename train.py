@@ -2,6 +2,10 @@ import sys, os
 
 sys.path.append(os.getcwd())
 
+import warnings
+
+warnings.filterwarnings(action="ignore")
+
 import argparse
 from dataset.transform import *
 from dataset.voc import VOCSegmentation as VOC
@@ -18,7 +22,8 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class
 from loss import DiceLoss
 
 # setup the device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def get_transform():
     train_transform = Compose(
@@ -92,7 +97,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     images, _ = dataiter.next()
     grid = torchvision.utils.make_grid(images)
     writer.add_image("images", grid, 0)
-    images = images.to(device) if args.use_gpu else images  
+    images = images.to(device) if args.use_gpu else images
     writer.add_graph(model, images)
 
     # init loss func
@@ -113,11 +118,11 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         tq.set_description("epoch %d, lr %f" % (epoch, lr))
         loss_record = []
         for i, (data, label) in enumerate(dataloader_train):
-            if torch.cuda.is_available() and args.use_gpu:
-                data = data.cuda()
-                label = label.cuda().long()
-
             label = label.type(torch.LongTensor)
+            if args.use_gpu:
+                data = data.to(device)
+                label = label.to(device)
+
             # forward
             output, output_sup1, output_sup2 = model(data)
             loss1 = loss_func(output, label)
@@ -125,7 +130,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             loss3 = loss_func(output_sup2, label)
             loss = loss1 + loss2 + loss3
             tq.update(args.batch_size)
-            tq.set_postfix(loss="%.6f" % loss)
+            tq.set_postfix(loss=f"{loss:.6f}")
             # backward
             optimizer.zero_grad()
             loss.backward()
@@ -161,7 +166,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             writer.add_scalar("epoch/miou val", miou, epoch)
 
         writer.flush()
-
 
     writer.close()
 
