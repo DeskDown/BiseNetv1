@@ -17,6 +17,8 @@ from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from loss import DiceLoss
 
+# setup the device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def get_transform():
     train_transform = Compose(
@@ -90,6 +92,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     images, _ = dataiter.next()
     grid = torchvision.utils.make_grid(images)
     writer.add_image("images", grid, 0)
+    images = images.to(device) if args.use_gpu else images  
     writer.add_graph(model, images)
 
     # init loss func
@@ -148,22 +151,22 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             precision, miou = val(args, model, dataloader_val)
             if miou > max_miou:
                 max_miou = miou
-                import os
-
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(
                     model.module.state_dict(),
                     os.path.join(args.save_model_path, "best_dice_loss.pth"),
                 )
+
             writer.add_scalar("epoch/precision_val", precision, epoch)
             writer.add_scalar("epoch/miou val", miou, epoch)
+
+        writer.flush()
+
 
     writer.close()
 
 
-def main(params):
-    # basic parameters
-    parser = argparse.ArgumentParser()
+def add_arguments(parser):
     parser.add_argument(
         "--num_epochs", type=int, default=300, help="Number of epochs to train for"
     )
@@ -231,14 +234,19 @@ def main(params):
         default="crossentropy",
         help="loss function, dice or crossentropy",
     )
+    return parser
 
+
+def main(params):
+    # parse the parameters
+    parser = argparse.ArgumentParser()
+    parser = add_arguments(parser)
     args = parser.parse_args(params)
     print("Training with following arguments:", args)
 
     # create dataset and dataloader
     train_path = args.data
     train_transform, val_transform = get_transform()
-
     dataset_train = VOC(train_path, image_set="train", transform=train_transform)
     dataloader_train = DataLoader(
         dataset_train,
@@ -258,8 +266,8 @@ def main(params):
     # build model
     os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
     model = BiSeNet(args.num_classes, args.context_path)
-    if torch.cuda.is_available() and args.use_gpu:
-        model = model.cuda()
+    if args.use_gpu:
+        model = model.to(device)
 
     # build optimizer
     if args.optimizer == "rmsprop":
