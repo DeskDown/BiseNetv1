@@ -213,7 +213,8 @@ def main(params):
     )
 
     args = parser.parse_args(params)
-
+    print("Training with following arguments:", args)
+    
     # create dataset and dataloader
     train_path = args.data
     train_transform, val_transform = get_transform()
