@@ -16,7 +16,7 @@ class resnet18(torch.nn.Module):
         self.layer4 = self.features.layer4
 
     def forward(self, input):
-        x = self.conv1(input) # 1 / 2
+        x = self.conv1(input)  # 1 / 2
         x = self.relu(self.bn1(x))
         x = self.maxpool1(x)
         feature1 = self.layer1(x)  # 1 / 4
@@ -43,7 +43,7 @@ class resnet50(torch.nn.Module):
         self.layer4 = self.features.layer4
 
     def forward(self, input):
-        x = self.conv1(input) # 1 / 2
+        x = self.conv1(input)  # 1 / 2
         x = self.relu(self.bn1(x))
         x = self.maxpool1(x)
         feature1 = self.layer1(x)  # 1 / 4
@@ -54,7 +54,6 @@ class resnet50(torch.nn.Module):
         tail = torch.mean(feature4, 3, keepdim=True)
         tail = torch.mean(tail, 2, keepdim=True)
         return feature3, feature4, tail
-
 
 
 class resnet101(torch.nn.Module):

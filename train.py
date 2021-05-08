@@ -1,3 +1,6 @@
+import sys, os
+sys.path.append(os.getcwd())
+
 import argparse
 from dataset.transform import *
 from dataset.voc import VOCSegmentation as VOC
@@ -137,7 +140,7 @@ def main(params):
     parser.add_argument('--validation_step', type=int, default=10, help='How often to perform validation (epochs)')
     parser.add_argument('--batch_size', type=int, default=1, help='Number of images in each batch')
     parser.add_argument('--context_path', type=str, default="resnet101",
-                        help='The context path model you are using, resnet18, resnet101.')
+                        help='The context path model you are using, resnet18,resnet50, resnet101.')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='learning rate used for train')
     parser.add_argument('--data', type=str, default='data', help='path of training data')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers')
@@ -208,11 +211,11 @@ if __name__ == '__main__':
         '--num_workers', '8',
         '--num_classes', '21',
         '--cuda', '0',
+        '--use_gpu', 'False',
         '--batch_size', '16',
         '--save_model_path', './checkpoints_18_sgd',
-        '--context_path', 'resnet18',  # set resnet18 or resnet101, only support resnet18 and resnet101
+        '--context_path', 'resnet18',  # set resnet18,resnet50 or resnet101
         '--optimizer', 'sgd',
-
     ]
     main(params)
 
