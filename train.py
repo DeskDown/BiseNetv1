@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import os
 from model.build_BiSeNet import BiSeNet
 import torch
+import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.notebook import tqdm
 import numpy as np
@@ -82,9 +83,14 @@ def val(args, model, dataloader):
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     # Prepare the tensorboard
     comment = "Optimizer: {}, lr: {}, batch_size: {}".format(
-        args.optimizer, args.learning_rate, args.batch_size)
+        args.optimizer, args.learning_rate, args.batch_size
+    )
     writer = SummaryWriter(comment=comment)
-    writer.add_graph(model)
+    dataiter = iter(dataloader_train)
+    images, _ = dataiter.next()
+    grid = torchvision.utils.make_grid(images)
+    writer.add_image("images", grid, 0)
+    writer.add_graph(model, images)
 
     # init loss func
     if args.loss == "dice":
@@ -109,7 +115,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 label = label.cuda().long()
 
             label = label.type(torch.LongTensor)
-            #forward
+            # forward
             output, output_sup1, output_sup2 = model(data)
             loss1 = loss_func(output, label)
             loss2 = loss_func(output_sup1, label)
@@ -151,6 +157,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 )
             writer.add_scalar("epoch/precision_val", precision, epoch)
             writer.add_scalar("epoch/miou val", miou, epoch)
+
+    writer.close()
 
 
 def main(params):
