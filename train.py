@@ -267,27 +267,16 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs",
-        "30",
-        "--learning_rate",
-        "1e-3",
-        "--data",
-        "/gdrive/MyDrive/data",
-        "--num_workers",
-        "8",
-        "--num_classes",
-        "21",
-        "--cuda",
-        "0",
-        "--use_gpu",
-        "False",
-        "--batch_size",
-        "16",
-        "--save_model_path",
-        "./checkpoints_18_sgd",
-        "--context_path",
-        "resnet18",  # set resnet18,resnet50 or resnet101
-        "--optimizer",
-        "sgd",
+        "--num_epochs", "30",
+        "--learning_rate", "1e-3",
+        "--data", "/gdrive/MyDrive/data",
+        "--num_workers", "8",
+        "--num_classes", "21",
+        "--cuda", "0",
+        "--use_gpu", "False",
+        "--batch_size", "16",
+        "--save_model_path", "./checkpoints_18_sgd",
+        "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
+        "--optimizer", "sgd",
     ]
     main(params)
