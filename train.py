@@ -80,14 +80,22 @@ def val(args, model, dataloader):
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val):
-    writer = SummaryWriter(comment="".format(args.optimizer, args.context_path))
+    # Prepare the tensorboard
+    comment = "Optimizer: {}, lr: {}, batch_size: {}".format(
+        args.optimizer, args.learning_rate, args.batch_size)
+    writer = SummaryWriter(comment=comment)
+    writer.add_graph(model)
+
+    # init loss func
     if args.loss == "dice":
         loss_func = DiceLoss()
     elif args.loss == "crossentropy":
         loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0
     step = 0
+    # start training
     for epoch in range(args.num_epochs):
+        # adjust learning rate
         lr = poly_lr_scheduler(
             optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
         )
@@ -101,6 +109,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 label = label.cuda().long()
 
             label = label.type(torch.LongTensor)
+            #forward
             output, output_sup1, output_sup2 = model(data)
             loss1 = loss_func(output, label)
             loss2 = loss_func(output_sup1, label)
@@ -108,12 +117,15 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             loss = loss1 + loss2 + loss3
             tq.update(args.batch_size)
             tq.set_postfix(loss="%.6f" % loss)
+            # backward
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             step += 1
+            # log the progress
             writer.add_scalar("loss_step", loss, step)
             loss_record.append(loss.item())
+
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar("epoch/loss_epoch_train", float(loss_train_mean), epoch)
