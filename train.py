@@ -15,7 +15,7 @@ from model.build_BiSeNet import BiSeNet
 import torch
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import numpy as np
 from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
@@ -114,9 +114,11 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
         )
         model.train()
-        tq = tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.set_description("epoch %d, lr %f" % (epoch, lr))
         loss_record = []
+        # progress bar
+        tq = tqdm(total=len(dataloader_train) * args.batch_size)
+        tq.write("epoch {}, lr {:.4f}".format(epoch, lr))
+        tq.set_description("epoch {}, lr {:.4f}".format(epoch, lr))
         for i, (data, label) in enumerate(dataloader_train):
             label = label.type(torch.LongTensor)
             if args.use_gpu:
