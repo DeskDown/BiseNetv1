@@ -117,8 +117,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         loss_record = []
         # progress bar
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.write("epoch {}, lr {:.4f}".format(epoch, lr))
-        tq.set_description("epoch {}, lr {:.4f}".format(epoch, lr))
+        tq.set_description("epoch: {}/{}".format(epoch+1,args.num_epochs+1))
         for i, (data, label) in enumerate(dataloader_train):
             label = label.type(torch.LongTensor)
             if args.use_gpu:
@@ -132,7 +131,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             loss3 = loss_func(output_sup2, label)
             loss = loss1 + loss2 + loss3
             tq.update(args.batch_size)
-            tq.set_postfix(loss=f"{loss:.6f}")
+            tq.set_postfix(loss=f"{loss:.6f}", lr = lr)
             # backward
             optimizer.zero_grad()
             loss.backward()
@@ -141,6 +140,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             # log the progress
             writer.add_scalar("loss_step", loss, step)
             loss_record.append(loss.item())
+
 
         tq.close()
         loss_train_mean = np.mean(loss_record)
@@ -296,7 +296,7 @@ def main(params):
 
     # train
     train(args, model, optimizer, dataloader_train, dataloader_val)
-
+    print("Training completed.")
     val(args, model, dataloader_val)
 
 
