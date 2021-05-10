@@ -1,6 +1,8 @@
+import warnings
+warnings.filterwarnings(action="ignore")
 import os.path as osp
+from dataset.transform import *
 import torch.utils.data as data
-
 from PIL import Image
 
 classes = {
@@ -37,17 +39,11 @@ class VOCSegmentation(data.Dataset):
             and returns a transformed version. E.g, ``transforms.RandomCrop``
     """
 
-    def __init__(self,
-                 root,
-                 image_set='train',
-                 is_aug=True,
-                 transform=None):
+    def __init__(self, root, image_set='train', is_aug=True, transform=None):
 
         self.root = osp.expanduser(root)
         self.year = "2012"
-
         self.transform = transform
-
         self.image_set = image_set
         base_dir = "PascalVOC12"
         voc_root = osp.join(self.root, base_dir)
@@ -75,7 +71,14 @@ class VOCSegmentation(data.Dataset):
             file_names = [x[:-1].split(' ') for x in f.readlines()]
 
         # REMOVE FIRST SLASH OTHERWISE THE JOIN WILL start from root
-        self.images = [(osp.join(voc_root, x[0][1:]), osp.join(voc_root, x[1][1:])) for x in file_names]
+        self.images = [(self._get_AbsPath(voc_root, x[0]), self._get_AbsPath(voc_root, x[1]))
+                         for x in file_names]
+
+
+    def _get_AbsPath(self, root, other):
+        x = osp.join(root, other[1:])
+        return osp.abspath(x)
+
 
     def __getitem__(self, index):
         """
@@ -84,8 +87,9 @@ class VOCSegmentation(data.Dataset):
         Returns:
             tuple: (image, target) where target is the image segmentation.
         """
-        img = Image.open(self.images[index][0]).convert('RGB')
-        target = Image.open(self.images[index][1])
+        block = self.images[index]
+        img = Image.open(block[0]).convert('RGB')
+        target = Image.open(block[1])
         if self.transform is not None:
             img, target = self.transform(img, target)
 
@@ -93,3 +97,16 @@ class VOCSegmentation(data.Dataset):
 
     def __len__(self):
         return len(self.images)
+
+if __name__ == "__main__":
+    p = r"C:\Users\rehma\Google Drive\data"
+    train_transform = Compose(
+        [
+            RandomResizedCrop(320, (0.5, 2.0)),
+            RandomHorizontalFlip(),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    voc = VOCSegmentation(p, transform = train_transform)
+    voc[0]

@@ -1,12 +1,10 @@
 import sys, os
-
 sys.path.append(os.getcwd())
-
 import warnings
-
 warnings.filterwarnings(action="ignore")
 
 import argparse
+from pprint import pprint
 from dataset.transform import *
 from dataset.voc import VOCSegmentation as VOC
 from torch.utils.data import DataLoader
@@ -45,12 +43,13 @@ def get_transform():
     return train_transform, val_transform
 
 
-def val(args, model, dataloader):
+def val(args, model, dataloader, loss_func):
     print("start val!")
     # label_info = get_label_info(csv_path)
     with torch.no_grad():
         model.eval()
         precision_record = []
+        loss_record = []
         hist = np.zeros((args.num_classes, args.num_classes))
         for i, (data, label) in enumerate(dataloader):
             if torch.cuda.is_available() and args.use_gpu:
@@ -58,7 +57,8 @@ def val(args, model, dataloader):
                 label = label.cuda().long()
 
             output = model(data)
-
+            loss = loss_func(output, label)
+            loss_record.append(loss)
             # get RGB predict image
             _, prediction = output.max(dim=1)  # B, H, W
             label = label.cpu().numpy()
@@ -72,6 +72,9 @@ def val(args, model, dataloader):
             # predict = colour_code_segmentation(np.array(predict), label_info)
             # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
+
+
+        loss_mean = np.mean(loss_record)
         precision = np.mean(precision_record)
         # miou = np.mean(per_class_iu(hist))
         miou_list = per_class_iu(hist)[:-1]
@@ -84,42 +87,55 @@ def val(args, model, dataloader):
         #     miou_str += '{}:{},\n'.format(key, miou_dict[key])
         # print('mIoU for each class:')
         # print(miou_str)
-        return precision, miou
+        return precision, miou, loss_mean
+
+
+def makeWriter(data, args, model):
+    comment = "Optimizer {}, lr {}, batch_size {}".format(
+        args.optimizer, args.learning_rate, args.batch_size
+    )
+    writer = SummaryWriter(comment=comment)
+    images, _  = iter(data).next()
+    grid = torchvision.utils.make_grid(images)
+    images = images.to(device) if args.use_gpu else images
+    writer.add_image("images", grid, 0)
+    writer.add_graph(model, images)
+    return writer
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     # Prepare the tensorboard
-    comment = "Optimizer: {}, lr: {}, batch_size: {}".format(
-        args.optimizer, args.learning_rate, args.batch_size
-    )
-    writer = SummaryWriter(comment=comment)
-    dataiter = iter(dataloader_train)
-    images, _ = dataiter.next()
-    grid = torchvision.utils.make_grid(images)
-    writer.add_image("images", grid, 0)
-    images = images.to(device) if args.use_gpu else images
-    writer.add_graph(model, images)
-
+    # comment = "Optimizer: {}, lr: {}, batch_size: {}".format(
+    #     args.optimizer, args.learning_rate, args.batch_size
+    # )
+    # writer = SummaryWriter(comment=comment)
+    # dataiter = iter(dataloader_train)
+    # images, _ = dataiter.next()
+    # grid = torchvision.utils.make_grid(images)
+    # writer.add_image("images", grid, 0)
+    # images = images.to(device) if args.use_gpu else images
+    # writer.add_graph(model, images)
+    writer = makeWriter(dataloader_train, args, model)
     # init loss func
-    if args.loss == "dice":
-        loss_func = DiceLoss()
-    elif args.loss == "crossentropy":
-        loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
+    losses = {"dice":DiceLoss(), "crossentropy":torch.nn.CrossEntropyLoss(ignore_index=255)}
+    loss_func = losses[args.loss]
     max_miou = 0
     step = 0
     # start training
     for epoch in range(args.num_epochs):
         # adjust learning rate
-        lr = poly_lr_scheduler(
-            optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
-        )
+        # lr = poly_lr_scheduler(
+        #     optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
+        # )
         model.train()
+        lr = args.learning_rate
         loss_record = []
+        principal_loss_record = []
         # progress bar
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.set_description("epoch: {}/{}".format(epoch+1,args.num_epochs+1))
+        tq.set_description("epoch: {}/{}".format(epoch + 1, args.num_epochs))
         for i, (data, label) in enumerate(dataloader_train):
-            label = label.type(torch.LongTensor)
+            # label = label.type(torch.LongTensor)
             if args.use_gpu:
                 data = data.to(device)
                 label = label.to(device)
@@ -131,7 +147,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             loss3 = loss_func(output_sup2, label)
             loss = loss1 + loss2 + loss3
             tq.update(args.batch_size)
-            tq.set_postfix(loss=f"{loss:.6f}", lr = lr)
+            tq.set_postfix(loss=f"{loss:.4f}", lr=lr)
             # backward
             optimizer.zero_grad()
             loss.backward()
@@ -140,12 +156,15 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             # log the progress
             writer.add_scalar("loss_step", loss, step)
             loss_record.append(loss.item())
+            principal_loss_record.append(loss1.item())
 
 
         tq.close()
         loss_train_mean = np.mean(loss_record)
+        pri_train_mean = np.mean(principal_loss_record)
         writer.add_scalar("epoch/loss_epoch_train", float(loss_train_mean), epoch)
-        print("loss for train : %f" % (loss_train_mean))
+        writer.add_scalar("epoch/pri_loss_epoch_train", float(pri_train_mean), epoch)
+
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
@@ -154,8 +173,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 os.path.join(args.save_model_path, "model.pth"),
             )
 
-        if epoch % args.validation_step == 0 and epoch != 0:
-            precision, miou = val(args, model, dataloader_val)
+        if epoch % args.validation_step == 0:
+            precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
                 os.makedirs(args.save_model_path, exist_ok=True)
@@ -165,8 +184,11 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 )
 
             writer.add_scalar("epoch/precision_val", precision, epoch)
-            writer.add_scalar("epoch/miou val", miou, epoch)
-
+            writer.add_scalar("epoch/miou_val", miou, epoch)
+            writer.add_scalar("epoch/loss_val", loss, epoch)
+            print("epoch: {}, train_loss: {}, val_loss: {}, val_precision: {}, val_miou: {}".format(
+                epoch, pri_train_mean, val_loss, precision, miou
+            ))
         writer.flush()
 
     writer.close()
@@ -243,39 +265,7 @@ def add_arguments(parser):
     return parser
 
 
-def main(params):
-    # parse the parameters
-    parser = argparse.ArgumentParser()
-    parser = add_arguments(parser)
-    args = parser.parse_args(params)
-    print("Training with following arguments:", args)
-
-    # create dataset and dataloader
-    train_path = args.data
-    train_transform, val_transform = get_transform()
-    dataset_train = VOC(train_path, image_set="train", transform=train_transform)
-    dataloader_train = DataLoader(
-        dataset_train,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-        drop_last=True,
-    )
-    dataset_val = VOC(train_path, image_set="val", transform=val_transform)
-    dataloader_val = DataLoader(
-        dataset_val,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-    )
-
-    # build model
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
-    model = BiSeNet(args.num_classes, args.context_path)
-    if args.use_gpu:
-        model = model.to(device)
-
-    # build optimizer
+def get_optim(args, model):
     if args.optimizer == "rmsprop":
         optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
     elif args.optimizer == "sgd":
@@ -285,8 +275,36 @@ def main(params):
     elif args.optimizer == "adam":
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
     else:  # rmsprop
-        print("not supported optimizer \n")
-        return None
+        raise ValueError(f"optimizer not supported optimizer: {args.optimizer}")
+
+    return optimizer
+
+def main(params):
+    # parse the parameters
+    parser = argparse.ArgumentParser()
+    parser = add_arguments(parser)
+    args = parser.parse_args(params)
+    print("Training with following arguments:")
+    pprint(vars(args), indent= 4, compact=True)
+
+    # create dataset and dataloader
+    train_path = args.data
+    train_transform, val_transform = get_transform()
+    dataset_train = VOC(train_path, image_set="train", transform=train_transform)
+    dataset_val = VOC(train_path, image_set="val", transform=val_transform)
+    dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, 
+                        shuffle=True, num_workers=args.num_workers, drop_last=True, )
+    dataloader_val = DataLoader( dataset_val, batch_size=args.batch_size, 
+                        shuffle=True, num_workers=args.num_workers, )
+
+    # build model
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
+    model = BiSeNet(args.num_classes, args.context_path)
+    if args.use_gpu:
+        model = model.to(device)
+
+    # build optimizer
+    optimizer = get_optim(args, model)
 
     # load pretrained model if exists
     if args.pretrained_model_path is not None:
@@ -302,29 +320,19 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs",
-        "16",
-        "--learning_rate",
-        "1e-3",
-        "--data",
-        "/gdrive/MyDrive/data",
-        "--num_workers",
-        "8",
-        "--num_classes",
-        "21",
-        "--cuda",
-        "0",
-        "--use_gpu",
-        "False",
-        "--batch_size",
-        "24",
-        "--save_model_path",
-        "./checkpoints_18_sgd",
-        "--context_path",
-        "resnet18",  # set resnet18,resnet50 or resnet101
-        "--optimizer",
-        "sgd",
+        "--num_epochs", "16",
+        "--learning_rate", "1e-3",
+        "--data", "/gdrive/MyDrive/data" if os.name != 'nt' else 
+            r"C:\Users\rehma\Google Drive\data",
+        "--num_workers", "8",
+        "--num_classes", "21",
+        "--cuda", "0",
+        "--use_gpu", "False",
+        "--batch_size", "32",
+        "--save_model_path", "./checkpoints_18_sgd",
+        "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
+        "--optimizer", "sgd",
     ]
-    # main(params)
+    main(params)
 
-    main(sys.argv[1:])
+    # main(sys.argv[1:])

@@ -58,8 +58,7 @@ class AttentionRefinementModule(torch.nn.Module):
     def forward(self, input):
         # global average pooling
         x = self.avgpool(input)  # -> (n, in_channels, 1, 1)
-        assert self.in_channels == x.size(
-            1
+        assert self.in_channels == x.size(1
         ), "in_channels and out_channels should all be {}".format(x.size(1))
         x = self.conv(x)  # -> (n, out_channels, 1, 1)
         x = self.sigmoid(self.bn(x))
