@@ -46,19 +46,22 @@ def get_transform():
 def val(args, model, dataloader, loss_func):
     print("start val!")
     # label_info = get_label_info(csv_path)
+    tq = tqdm(total=len(dataloader) * args.batch_size)
+
     with torch.no_grad():
         model.eval()
         precision_record = []
         loss_record = []
         hist = np.zeros((args.num_classes, args.num_classes))
         for i, (data, label) in enumerate(dataloader):
+            tq.update(args.batch_size)
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
                 label = label.cuda().long()
 
             output = model(data)
             loss = loss_func(output, label)
-            loss_record.append(loss)
+            loss_record.append(loss.item())
             # get RGB predict image
             _, prediction = output.max(dim=1)  # B, H, W
             label = label.cpu().numpy()
@@ -73,20 +76,11 @@ def val(args, model, dataloader, loss_func):
             # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
 
-
+        tq.close()
         loss_mean = np.mean(loss_record)
         precision = np.mean(precision_record)
-        # miou = np.mean(per_class_iu(hist))
         miou_list = per_class_iu(hist)[:-1]
-        # miou_dict, miou = cal_miou(miou_list, csv_path)
         miou = np.mean(miou_list)
-        print("precision per pixel for test: %.3f" % precision)
-        print("mIoU for validation: %.3f" % miou)
-        # miou_str = ''
-        # for key in miou_dict:
-        #     miou_str += '{}:{},\n'.format(key, miou_dict[key])
-        # print('mIoU for each class:')
-        # print(miou_str)
         return precision, miou, loss_mean
 
 
@@ -135,7 +129,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description("epoch: {}/{}".format(epoch + 1, args.num_epochs))
         for i, (data, label) in enumerate(dataloader_train):
-            # label = label.type(torch.LongTensor)
+            label = label.type(torch.LongTensor)
             if args.use_gpu:
                 data = data.to(device)
                 label = label.to(device)
@@ -169,7 +163,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(
-                model.module.state_dict(),
+                model.state_dict(),
                 os.path.join(args.save_model_path, "model.pth"),
             )
 
@@ -179,7 +173,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 max_miou = miou
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(
-                    model.module.state_dict(),
+                    model.state_dict(),
                     os.path.join(args.save_model_path, "best_dice_loss.pth"),
                 )
 
@@ -287,6 +281,7 @@ def main(params):
     print("Training with following arguments:")
     pprint(vars(args), indent= 4, compact=True)
 
+    print("Running on: {}".format(device if args.use_gpu else torch.device('cpu')))
     # create dataset and dataloader
     train_path = args.data
     train_transform, val_transform = get_transform()
@@ -320,15 +315,16 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs", "16",
+        "--num_epochs", "30",
+        "--batch_size", "64",
         "--learning_rate", "1e-3",
-        "--data", "/gdrive/MyDrive/data" if os.name != 'nt' else 
+        "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
             r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
+        "--validation_step", "1",
         "--num_classes", "21",
         "--cuda", "0",
-        "--use_gpu", "False",
-        "--batch_size", "32",
+        "--use_gpu", "True",
         "--save_model_path", "./checkpoints_18_sgd",
         "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
         "--optimizer", "sgd",
