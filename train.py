@@ -99,16 +99,6 @@ def makeWriter(data, args, model):
 
 def train(args, model, optimizer, dataloader_train, dataloader_val):
     # Prepare the tensorboard
-    # comment = "Optimizer: {}, lr: {}, batch_size: {}".format(
-    #     args.optimizer, args.learning_rate, args.batch_size
-    # )
-    # writer = SummaryWriter(comment=comment)
-    # dataiter = iter(dataloader_train)
-    # images, _ = dataiter.next()
-    # grid = torchvision.utils.make_grid(images)
-    # writer.add_image("images", grid, 0)
-    # images = images.to(device) if args.use_gpu else images
-    # writer.add_graph(model, images)
     writer = makeWriter(dataloader_train, args, model)
     # init loss func
     losses = {"dice":DiceLoss(), "crossentropy":torch.nn.CrossEntropyLoss(ignore_index=255)}
@@ -167,7 +157,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 os.path.join(args.save_model_path, "model.pth"),
             )
 
-        if epoch % args.validation_step == 0:
+        if epoch % args.validation_step == 0 or (epoch + 1) == args.num_epochs:
             precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
@@ -310,22 +300,21 @@ def main(params):
     # train
     train(args, model, optimizer, dataloader_train, dataloader_val)
     print("Training completed.")
-    val(args, model, dataloader_val)
 
 
 if __name__ == "__main__":
     params = [
         "--num_epochs", "30",
         "--batch_size", "64",
-        "--learning_rate", "1e-3",
+        "--learning_rate", "0.01",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
             r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
-        "--validation_step", "1",
+        "--validation_step", "2",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
-        "--save_model_path", "./checkpoints_18_sgd",
+        "--save_model_path", "/root_drive/MyDrive/models/res18_30_01_sgd",
         "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
         "--optimizer", "sgd",
     ]
