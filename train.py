@@ -1,3 +1,4 @@
+from datetime import datetime
 import sys, os
 sys.path.append(os.getcwd())
 import warnings
@@ -44,7 +45,7 @@ def get_transform():
 
 
 def val(args, model, dataloader, loss_func):
-    print("start val!")
+    # print("start val!")
     # label_info = get_label_info(csv_path)
     tq = tqdm(total=len(dataloader) * args.batch_size)
 
@@ -106,7 +107,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     max_miou = 0
     step = 0
     # start training
-    for epoch in range(args.num_epochs):
+    for epoch in range(1, args.num_epochs + 1):
         # adjust learning rate
         # lr = poly_lr_scheduler(
         #     optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
@@ -117,7 +118,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         principal_loss_record = []
         # progress bar
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
-        tq.set_description("epoch: {}/{}".format(epoch + 1, args.num_epochs))
+        tq.set_description("epoch: {}/{}".format(epoch, args.num_epochs))
         for i, (data, label) in enumerate(dataloader_train):
             label = label.type(torch.LongTensor)
             if args.use_gpu:
@@ -149,7 +150,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         writer.add_scalar("epoch/loss_epoch_train", float(loss_train_mean), epoch)
         writer.add_scalar("epoch/pri_loss_epoch_train", float(pri_train_mean), epoch)
 
-        if epoch % args.checkpoint_step == 0 and epoch != 0:
+        if epoch % args.checkpoint_step == 0 and epoch != 1:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(
@@ -157,7 +158,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 os.path.join(args.save_model_path, "model.pth"),
             )
 
-        if epoch % args.validation_step == 0 or (epoch + 1) == args.num_epochs:
+        if epoch % args.validation_step == 0 or (epoch) == args.num_epochs:
             precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
@@ -264,6 +265,7 @@ def get_optim(args, model):
     return optimizer
 
 def main(params):
+
     # parse the parameters
     parser = argparse.ArgumentParser()
     parser = add_arguments(parser)
@@ -318,5 +320,6 @@ if __name__ == "__main__":
         "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
         "--optimizer", "sgd",
     ]
+    print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
     main(params)
     # main(sys.argv[1:])
