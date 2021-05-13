@@ -150,7 +150,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         writer.add_scalar("epoch/loss_epoch_train", float(loss_train_mean), epoch)
         writer.add_scalar("epoch/pri_loss_epoch_train", float(pri_train_mean), epoch)
 
-        if epoch % args.checkpoint_step == 0 and epoch != 1:
+        if epoch % args.checkpoint_step == 0 or epoch == args.num_epochs:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(
@@ -158,14 +158,14 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 os.path.join(args.save_model_path, "model.pth"),
             )
 
-        if epoch % args.validation_step == 0 or (epoch) == args.num_epochs:
+        if epoch % args.validation_step == 0 or epoch == args.num_epochs:
             precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(
                     model.state_dict(),
-                    os.path.join(args.save_model_path, "best_dice_loss.pth"),
+                    os.path.join(args.save_model_path, f"best_{args.loss}_loss.pth"),
                 )
 
             writer.add_scalar("epoch/precision_val", precision, epoch)
