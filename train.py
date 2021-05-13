@@ -48,7 +48,7 @@ def val(args, model, dataloader, loss_func):
     # print("start val!")
     # label_info = get_label_info(csv_path)
     tq = tqdm(total=len(dataloader) * args.batch_size)
-    tq.set_description("validating:"))
+    tq.set_description("validating:")
     with torch.no_grad():
         model.eval()
         precision_record = []
@@ -305,13 +305,13 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs", "16",
+        "--num_epochs", "20",
         "--batch_size", "32",
         "--learning_rate", "0.01",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
             r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
-        "--validation_step", "1",
+        "--validation_step", "2",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
