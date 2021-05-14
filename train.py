@@ -152,13 +152,15 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
 
         if epoch % args.checkpoint_step == 0 or epoch == args.num_epochs:
             if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path)
+                os.mkdir(args.save_model_path, exist_ok = True)
             torch.save(
                 model.state_dict(),
-                os.path.join(args.save_model_path, "model.pth"),
+                os.path.join(args.save_model_path, f"model_{epoch}_.pth"),
             )
 
-        if epoch % args.validation_step == 0 or epoch == args.num_epochs:
+        if (epoch % args.validation_step == 0 or 
+            epoch == args.num_epochs or
+            epoch == 1):
             precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
@@ -295,7 +297,7 @@ def main(params):
     # load pretrained model if exists
     if args.pretrained_model_path is not None:
         print("load model from %s ..." % args.pretrained_model_path)
-        model.module.load_state_dict(torch.load(args.pretrained_model_path))
+        model.load_state_dict(torch.load(args.pretrained_model_path))
         print("Done!")
 
     # train
@@ -307,7 +309,7 @@ if __name__ == "__main__":
     params = [
         "--num_epochs", "20",
         "--batch_size", "32",
-        "--learning_rate", "0.01",
+        "--learning_rate", "0.05",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
             r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
@@ -315,9 +317,10 @@ if __name__ == "__main__":
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
-        "--save_model_path", "/root_drive/MyDrive/models/res18_30_01_sgd",
-        "--context_path", "resnet18",  # set resnet18,resnet50 or resnet101
+        "--save_model_path", "/root_drive/MyDrive/models/res18_30_05_sgd",
+        "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
+        # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
     main(params)
