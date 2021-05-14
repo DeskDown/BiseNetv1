@@ -109,11 +109,11 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
     # start training
     for epoch in range(1, args.num_epochs + 1):
         # adjust learning rate
-        # lr = poly_lr_scheduler(
-        #     optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
-        # )
+        lr = poly_lr_scheduler(
+            optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
+        )
         model.train()
-        lr = args.learning_rate
+        # lr = args.learning_rate
         loss_record = []
         principal_loss_record = []
         # progress bar
@@ -307,9 +307,9 @@ def main(params):
 
 if __name__ == "__main__":
     params = [
-        "--num_epochs", "20",
+        "--num_epochs", "30",
         "--batch_size", "32",
-        "--learning_rate", "0.05",
+        "--learning_rate", "0.01",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
             r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
