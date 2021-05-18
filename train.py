@@ -6,12 +6,14 @@ warnings.filterwarnings(action="ignore")
 
 import argparse
 from pprint import pprint
+import contextlib
 from dataset.transform import *
 from dataset.voc import VOCSegmentation as VOC
 from torch.utils.data import DataLoader
 import os
 from model.build_BiSeNet import BiSeNet
 import torch
+from torch.cuda import amp
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -97,8 +99,12 @@ def makeWriter(data, args, model):
     writer.add_graph(model, images)
     return writer
 
+@contextlib.contextmanager
+def dummy_cm():
+    yield
 
-def train(args, model, optimizer, dataloader_train, dataloader_val):
+
+def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
     # Prepare the tensorboard
     writer = makeWriter(dataloader_train, args, model)
     # init loss func
@@ -126,17 +132,29 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 label = label.to(device)
 
             # forward
-            output, output_sup1, output_sup2 = model(data)
-            loss1 = loss_func(output, label)
-            loss2 = loss_func(output_sup1, label)
-            loss3 = loss_func(output_sup2, label)
-            loss = loss1 + loss2 + loss3
+            optimizer.zero_grad()
+            if scaler:
+                cm = amp.autocast()
+            else:
+                cm = dummy_cm()
+
+            with cm:
+                output, output_sup1, output_sup2 = model(data)
+                loss1 = loss_func(output, label)
+                loss2 = loss_func(output_sup1, label)
+                loss3 = loss_func(output_sup2, label)
+                loss = loss1 + loss2 + loss3
+            
             tq.update(args.batch_size)
             tq.set_postfix(loss=f"{loss:.4f}", lr=lr)
             # backward
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if scaler:
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
             step += 1
             # log the progress
             writer.add_scalar("loss_step", loss, step)
@@ -249,6 +267,12 @@ def add_arguments(parser):
         default="crossentropy",
         help="loss function, dice or crossentropy",
     )
+    parser.add_argument(
+        "--use_amp",
+        type=str,
+        default="True",
+        help="use automatic mixed precision",
+    )
     return parser
 
 
@@ -300,8 +324,10 @@ def main(params):
         model.load_state_dict(torch.load(args.pretrained_model_path))
         print("Done!")
 
+    scaler = amp.GradScaler() if args.use_amp else None
+
     # train
-    train(args, model, optimizer, dataloader_train, dataloader_val)
+    train(args, model, optimizer, dataloader_train, dataloader_val, scaler)
     print("Training completed." , datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
 
 
@@ -320,6 +346,7 @@ if __name__ == "__main__":
         "--save_model_path", "/root_drive/MyDrive/models/res18_30_05_sgd",
         "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
+        "--use_amp", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
