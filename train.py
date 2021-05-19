@@ -115,11 +115,11 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
     # start training
     for epoch in range(1, args.num_epochs + 1):
         # adjust learning rate
-        lr = poly_lr_scheduler(
-            optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
-        )
+        # lr = poly_lr_scheduler(
+        #     optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
+        # )
         model.train()
-        # lr = args.learning_rate
+        lr = args.learning_rate
         loss_record = []
         principal_loss_record = []
         # progress bar
