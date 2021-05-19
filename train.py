@@ -204,12 +204,6 @@ def add_arguments(parser):
         "--num_epochs", type=int, default=300, help="Number of epochs to train for"
     )
     parser.add_argument(
-        "--epoch_start_i",
-        type=int,
-        default=0,
-        help="Start counting epochs from this number",
-    )
-    parser.add_argument(
         "--checkpoint_step",
         type=int,
         default=10,
@@ -345,7 +339,7 @@ if __name__ == "__main__":
         "--use_gpu", "True",
         "--save_model_path", "/root_drive/MyDrive/models/res18_30_05_sgd",
         "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
-        "--optimizer", "sgd",
+        "--optimizer", "adam",
         "--use_amp", "True",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
