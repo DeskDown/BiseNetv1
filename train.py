@@ -364,7 +364,7 @@ if __name__ == "__main__":
         "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
         "--use_amp", "True",
-        "--use_lrScheduler", "True",
+        "--use_lrScheduler", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
