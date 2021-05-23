@@ -1,10 +1,11 @@
-import sys, os
+import warnings
+from model.build_contextpath import build_contextpath
+from torch import nn
+import torch
+import sys
+import os
 sys.path.append(os.getcwd())
 
-import torch
-from torch import nn
-from model.build_contextpath import build_contextpath
-import warnings
 
 warnings.filterwarnings(action="ignore")
 
@@ -31,7 +32,8 @@ class ConvBlock(torch.nn.Module):
 class Spatial_path(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.convblock1 = ConvBlock(in_channels=3, out_channels=64)  # -> (n,64,H/2,W/2)
+        self.convblock1 = ConvBlock(
+            in_channels=3, out_channels=64)  # -> (n,64,H/2,W/2)
         self.convblock2 = ConvBlock(
             in_channels=64, out_channels=128
         )  # -> (n,128,H/4,W/4)
@@ -59,7 +61,7 @@ class AttentionRefinementModule(torch.nn.Module):
         # global average pooling
         x = self.avgpool(input)  # -> (n, in_channels, 1, 1)
         assert self.in_channels == x.size(1
-        ), "in_channels and out_channels should all be {}".format(x.size(1))
+                                          ), "in_channels and out_channels should all be {}".format(x.size(1))
         x = self.conv(x)  # -> (n, out_channels, 1, 1)
         x = self.sigmoid(self.bn(x))
         # channels of input and x should be same
@@ -118,8 +120,10 @@ class BiSeNet(torch.nn.Module):
 
         # build attention refinement module  for resnet 101
         if context_path == "resnet101":
-            self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
-            self.attention_refinement_module2 = AttentionRefinementModule(2048, 2048)
+            self.attention_refinement_module1 = AttentionRefinementModule(
+                1024, 1024)
+            self.attention_refinement_module2 = AttentionRefinementModule(
+                2048, 2048)
             # supervision block
             self.supervision1 = nn.Conv2d(
                 in_channels=1024, out_channels=num_classes, kernel_size=1
@@ -132,8 +136,10 @@ class BiSeNet(torch.nn.Module):
 
         elif context_path == "resnet50":
             # build attention refinement module  for resnet 18
-            self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
-            self.attention_refinement_module2 = AttentionRefinementModule(2048, 2048)
+            self.attention_refinement_module1 = AttentionRefinementModule(
+                1024, 1024)
+            self.attention_refinement_module2 = AttentionRefinementModule(
+                2048, 2048)
             # supervision block
             self.supervision1 = nn.Conv2d(
                 in_channels=1024, out_channels=num_classes, kernel_size=1
@@ -146,8 +152,10 @@ class BiSeNet(torch.nn.Module):
 
         elif context_path == "resnet18":
             # build attention refinement module  for resnet 18
-            self.attention_refinement_module1 = AttentionRefinementModule(256, 256)
-            self.attention_refinement_module2 = AttentionRefinementModule(512, 512)
+            self.attention_refinement_module1 = AttentionRefinementModule(
+                256, 256)
+            self.attention_refinement_module2 = AttentionRefinementModule(
+                512, 512)
             # supervision block
             self.supervision1 = nn.Conv2d(
                 in_channels=256, out_channels=num_classes, kernel_size=1
@@ -202,12 +210,16 @@ class BiSeNet(torch.nn.Module):
         # cx2: (n, 2048, 1/32..)
         # tail: (n, 2048, 1, 1)
 
-        cx1 = self.attention_refinement_module1(cx1)  # resnet50 -> (n, 1024, 1, 1)
-        cx2 = self.attention_refinement_module2(cx2)  # resnet50 -> (n, 2048, 1, 1)
+        cx1 = self.attention_refinement_module1(
+            cx1)  # resnet50 -> (n, 1024, 1, 1)
+        cx2 = self.attention_refinement_module2(
+            cx2)  # resnet50 -> (n, 2048, 1, 1)
         cx2 = torch.mul(cx2, tail)
         # upsampling to match output of spatial path
-        cx1 = torch.nn.functional.interpolate(cx1, size=sx.size()[-2:], mode="bilinear")
-        cx2 = torch.nn.functional.interpolate(cx2, size=sx.size()[-2:], mode="bilinear")
+        cx1 = torch.nn.functional.interpolate(
+            cx1, size=sx.size()[-2:], mode="bilinear")
+        cx2 = torch.nn.functional.interpolate(
+            cx2, size=sx.size()[-2:], mode="bilinear")
         # concatenate the channels
         cx = torch.cat((cx1, cx2), dim=1)
 
@@ -237,7 +249,8 @@ class BiSeNet(torch.nn.Module):
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(
+        "cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = BiSeNet(32, "resnet50")
     # model = nn.DataParallel(model)
 

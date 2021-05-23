@@ -1,26 +1,26 @@
-from datetime import datetime
-import sys, os
-sys.path.append(os.getcwd())
+from loss import DiceLoss
+from utils import compute_global_accuracy, fast_hist, per_class_iu
+import numpy as np
+from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+import torchvision
+from torch.cuda import amp
+import torch
+from model.build_BiSeNet import BiSeNet
+import os
+from torch.utils.data import DataLoader
+from dataset.voc import VOCSegmentation as VOC
+from dataset.transform import *
+import contextlib
+from pprint import pprint
+import argparse
 import warnings
+from datetime import datetime
+import sys
+import os
+sys.path.append(os.getcwd())
 warnings.filterwarnings(action="ignore")
 
-import argparse
-from pprint import pprint
-import contextlib
-from dataset.transform import *
-from dataset.voc import VOCSegmentation as VOC
-from torch.utils.data import DataLoader
-import os
-from model.build_BiSeNet import BiSeNet
-import torch
-from torch.cuda import amp
-import torchvision
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
-import numpy as np
-from utils import poly_lr_scheduler
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
-from loss import DiceLoss
 
 # setup the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +72,8 @@ def val(args, model, dataloader, loss_func):
 
             # compute per pixel accuracy
             precision = compute_global_accuracy(prediction, label)
-            hist += fast_hist(label.flatten(), prediction.flatten(), args.num_classes)
+            hist += fast_hist(label.flatten(),
+                              prediction.flatten(), args.num_classes)
 
             # there is no need to transform the one-hot array to visual RGB array
             # predict = colour_code_segmentation(np.array(predict), label_info)
@@ -92,12 +93,13 @@ def makeWriter(data, args, model):
         args.optimizer, args.learning_rate, args.batch_size
     )
     writer = SummaryWriter(comment=comment)
-    images, _  = iter(data).next()
+    images, _ = iter(data).next()
     grid = torchvision.utils.make_grid(images)
     images = images.to(device) if args.use_gpu else images
     writer.add_image("images", grid, 0)
     writer.add_graph(model, images)
     return writer
+
 
 @contextlib.contextmanager
 def dummy_cm():
@@ -108,18 +110,24 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
     # Prepare the tensorboard
     writer = makeWriter(dataloader_train, args, model)
     # init loss func
-    losses = {"dice":DiceLoss(), "crossentropy":torch.nn.CrossEntropyLoss(ignore_index=255)}
+    losses = {"dice": DiceLoss(), "crossentropy": torch.nn.CrossEntropyLoss(
+        ignore_index=255)}
     loss_func = losses[args.loss]
+    if args.use_lrScheduler:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer,
+            mode='min',
+            factor=0.1,
+            patience=3,
+            threshold=0.0001,
+            min_lr=0,
+        )
     max_miou = 0
     step = 0
     # start training
     for epoch in range(1, args.num_epochs + 1):
-        # adjust learning rate
-        # lr = poly_lr_scheduler(
-        #     optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs
-        # )
         model.train()
-        lr = args.learning_rate
+        lr = optimizer.param_groups[0]['lr']
         loss_record = []
         principal_loss_record = []
         # progress bar
@@ -144,7 +152,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
                 loss2 = loss_func(output_sup1, label)
                 loss3 = loss_func(output_sup2, label)
                 loss = loss1 + loss2 + loss3
-            
+
             tq.update(args.batch_size)
             tq.set_postfix(loss=f"{loss:.4f}", lr=lr)
             # backward
@@ -155,37 +163,42 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
             else:
                 loss.backward()
                 optimizer.step()
+                if args.use_lrScheduler:
+                    scheduler.step(loss)
             step += 1
             # log the progress
             writer.add_scalar("loss_step", loss, step)
             loss_record.append(loss.item())
             principal_loss_record.append(loss1.item())
 
-
         tq.close()
         loss_train_mean = np.mean(loss_record)
         pri_train_mean = np.mean(principal_loss_record)
-        writer.add_scalar("epoch/loss_epoch_train", float(loss_train_mean), epoch)
-        writer.add_scalar("epoch/pri_loss_epoch_train", float(pri_train_mean), epoch)
+        writer.add_scalar("epoch/loss_epoch_train",
+                          float(loss_train_mean), epoch)
+        writer.add_scalar("epoch/pri_loss_epoch_train",
+                          float(pri_train_mean), epoch)
 
         if epoch % args.checkpoint_step == 0 or epoch == args.num_epochs:
             if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path, exist_ok = True)
+                os.mkdir(args.save_model_path, exist_ok=True)
             torch.save(
                 model.state_dict(),
                 os.path.join(args.save_model_path, f"model_{epoch}_.pth"),
             )
 
-        if (epoch % args.validation_step == 0 or 
+        if (epoch % args.validation_step == 0 or
             epoch == args.num_epochs or
-            epoch == 1):
-            precision, miou, val_loss = val(args, model, dataloader_val, loss_func)
+                epoch == 1):
+            precision, miou, val_loss = val(
+                args, model, dataloader_val, loss_func)
             if miou > max_miou:
                 max_miou = miou
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(
                     model.state_dict(),
-                    os.path.join(args.save_model_path, f"best_{args.loss}_loss.pth"),
+                    os.path.join(args.save_model_path,
+                                 f"best_{args.loss}_loss.pth"),
                 )
 
             writer.add_scalar("epoch/precision_val", precision, epoch)
@@ -230,7 +243,8 @@ def add_arguments(parser):
     parser.add_argument(
         "--data", type=str, default="/gdrive/MyDrive/data", help="path of training data"
     )
-    parser.add_argument("--num_workers", type=int, default=4, help="num of workers")
+    parser.add_argument("--num_workers", type=int,
+                        default=4, help="num of workers")
     parser.add_argument(
         "--num_classes", type=int, default=21, help="num of object classes (with void)"
     )
@@ -267,6 +281,12 @@ def add_arguments(parser):
         default="True",
         help="use automatic mixed precision",
     )
+    parser.add_argument(
+        "--use_lrScheduler",
+        type=str,
+        default="True",
+        help="Permit the use of lr Scheduler",
+    )
     return parser
 
 
@@ -280,9 +300,11 @@ def get_optim(args, model):
     elif args.optimizer == "adam":
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
     else:  # rmsprop
-        raise ValueError(f"optimizer not supported optimizer: {args.optimizer}")
+        raise ValueError(
+            f"optimizer not supported optimizer: {args.optimizer}")
 
     return optimizer
+
 
 def main(params):
 
@@ -291,17 +313,18 @@ def main(params):
     parser = add_arguments(parser)
     args = parser.parse_args(params)
     print("Training with following arguments:")
-    pprint(vars(args), indent= 4, compact=True)
+    pprint(vars(args), indent=4, compact=True)
     print("Running on: {}".format(device if args.use_gpu else torch.device('cpu')))
     # create dataset and dataloader
     train_path = args.data
     train_transform, val_transform = get_transform()
-    dataset_train = VOC(train_path, image_set="train", transform=train_transform)
+    dataset_train = VOC(train_path, image_set="train",
+                        transform=train_transform)
     dataset_val = VOC(train_path, image_set="val", transform=val_transform)
-    dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, 
-                        shuffle=True, num_workers=args.num_workers, drop_last=True, )
-    dataloader_val = DataLoader( dataset_val, batch_size=args.batch_size, 
-                        shuffle=True, num_workers=args.num_workers, )
+    dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size,
+                                  shuffle=True, num_workers=args.num_workers, drop_last=True, )
+    dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size,
+                                shuffle=True, num_workers=args.num_workers, )
 
     # build model
     os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
@@ -322,7 +345,7 @@ def main(params):
 
     # train
     train(args, model, optimizer, dataloader_train, dataloader_val, scaler)
-    print("Training completed." , datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+    print("Training completed.", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
 
 
 if __name__ == "__main__":
@@ -330,17 +353,18 @@ if __name__ == "__main__":
         "--num_epochs", "30",
         "--batch_size", "32",
         "--learning_rate", "0.01",
-        "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else 
-            r"C:\Users\rehma\Google Drive\data",
+        "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
+                r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
         "--validation_step", "2",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
-        "--save_model_path", "/root_drive/MyDrive/models/res18_30_05_sgd",
-        "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
-        "--optimizer", "adam",
+        "--save_model_path", "/root_drive/MyDrive/models/res50_30_05_sgd",
+        "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
+        "--optimizer", "sgd",
         "--use_amp", "True",
+        "--use_lrScheduler", "True",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
