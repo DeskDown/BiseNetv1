@@ -26,15 +26,21 @@ warnings.filterwarnings(action="ignore")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def get_transform():
+def get_transform(random_crop_size, further_data_aug):
+    initial = [
+        RandomResizedCrop(random_crop_size, (0.5, 2.0)),
+        RandomHorizontalFlip(),
+    ]
+    added = [
+        RandomRotation(5),
+        ColorJitter(brightness=2.0, contrast=2.0, saturation=0, hue=0)
+    ]
+    finalize = [
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
     train_transform = Compose(
-        [
-            RandomResizedCrop(320, (0.5, 2.0)),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
+        initial+added+finalize if further_data_aug else initial+finalize)
     val_transform = Compose(
         [
             PadCenterCrop(size=512),
@@ -284,8 +290,20 @@ def add_arguments(parser):
     parser.add_argument(
         "--use_lrScheduler",
         type=str,
-        default="True",
+        default="False",
         help="Permit the use of lr Scheduler",
+    )
+    parser.add_argument(
+        "--random_crop_size",
+        type=int,
+        default=310,
+        help="Random crop size for data augmentation during training",
+    )
+    parser.add_argument(
+        "--further_data_aug",
+        type=str,
+        default="False",
+        help="Permit use of new data augmentations for training",
     )
     return parser
 
@@ -307,7 +325,6 @@ def get_optim(args, model):
 
 
 def main(params):
-
     # parse the parameters
     parser = argparse.ArgumentParser()
     parser = add_arguments(parser)
@@ -317,7 +334,8 @@ def main(params):
     print("Running on: {}".format(device if args.use_gpu else torch.device('cpu')))
     # create dataset and dataloader
     train_path = args.data
-    train_transform, val_transform = get_transform()
+    train_transform, val_transform = get_transform(
+        args.random_crop_size, args.further_data_aug)
     dataset_train = VOC(train_path, image_set="train",
                         transform=train_transform)
     dataset_val = VOC(train_path, image_set="val", transform=val_transform)
@@ -354,7 +372,7 @@ if __name__ == "__main__":
         "--batch_size", "32",
         "--learning_rate", "0.01",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
-                r"C:\Users\rehma\Google Drive\data",
+        r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
         "--validation_step", "2",
         "--num_classes", "21",
@@ -365,6 +383,8 @@ if __name__ == "__main__":
         "--optimizer", "sgd",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
+        "--random_crop_size", "310",
+        "--further_data_aug", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
