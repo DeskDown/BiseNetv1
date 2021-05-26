@@ -383,7 +383,7 @@ if __name__ == "__main__":
         "--optimizer", "sgd",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
-        "--random_crop_size", "310",
+        "--random_crop_size", "400",
         "--further_data_aug", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
