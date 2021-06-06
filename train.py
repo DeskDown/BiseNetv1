@@ -1,5 +1,5 @@
 from loss import DiceLoss
-from utils import compute_global_accuracy, fast_hist, per_class_iu
+from utils import compute_global_accuracy, fast_hist, per_class_iu, poly_lr_scheduler
 import numpy as np
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -33,7 +33,8 @@ def get_transform(random_crop_size, further_data_aug):
     ]
     added = [
         RandomRotation(5),
-        ColorJitter(brightness=2.0, contrast=2.0, saturation=0, hue=0)
+        ColorJitter(brightness=(0.0, 3.0), contrast=(0.0, 3.0),
+                    saturation=(0.0, 3.0), hue=(0.0, 1.0))
     ]
     finalize = [
         ToTensor(),
@@ -133,7 +134,9 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
     # start training
     for epoch in range(1, args.num_epochs + 1):
         model.train()
-        lr = optimizer.param_groups[0]['lr']
+        # lr = optimizer.param_groups[0]['lr']
+        lr = poly_lr_scheduler(optimizer, args.learning_rate,
+                               iter=epoch, max_iter=args.num_epochs)
         loss_record = []
         principal_loss_record = []
         # progress bar
@@ -169,8 +172,9 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
             else:
                 loss.backward()
                 optimizer.step()
-                if args.use_lrScheduler:
-                    scheduler.step(loss)
+            if args.use_lrScheduler:
+                scheduler.step(loss)
+
             step += 1
             # log the progress
             writer.add_scalar("loss_step", loss, step)
@@ -370,20 +374,20 @@ if __name__ == "__main__":
     params = [
         "--num_epochs", "30",
         "--batch_size", "32",
-        "--learning_rate", "0.01",
+        "--learning_rate", "0.001",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
         "--num_workers", "8",
-        "--validation_step", "2",
+        "--validation_step", "1",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
-        "--save_model_path", "/root_drive/MyDrive/models/res50_30_05_sgd",
+        "--save_model_path", "/root_drive/MyDrive/models/res50_30_001_sgd",
         "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
-        "--random_crop_size", "400",
+        "--random_crop_size", "320",
         "--further_data_aug", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
