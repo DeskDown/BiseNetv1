@@ -1,5 +1,6 @@
 from loss import DiceLoss
 from utils import compute_global_accuracy, fast_hist, per_class_iu, poly_lr_scheduler
+import random
 import numpy as np
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -370,27 +371,35 @@ def main(params):
     print("Training completed.", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
 
 
+def fix_seed(seed=44):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
 if __name__ == "__main__":
     params = [
         "--num_epochs", "30",
         "--batch_size", "32",
         "--learning_rate", "0.001",
+        "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
+        "--optimizer", "sgd",
+        "--random_crop_size", "320",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
+        "--save_model_path", "/root_drive/MyDrive/models/res50_30_001_sgd",
         "--num_workers", "8",
         "--validation_step", "1",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
-        "--save_model_path", "/root_drive/MyDrive/models/res50_30_001_sgd",
-        "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
-        "--optimizer", "sgd",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
-        "--random_crop_size", "320",
         "--further_data_aug", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+    fix_seed(44)
     main(params)
     # main(sys.argv[1:])
