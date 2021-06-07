@@ -34,7 +34,7 @@ def get_transform(random_crop_size, further_data_aug):
     added = [
         RandomRotation(5),
         ColorJitter(brightness=(0.0, 3.0), contrast=(0.0, 3.0),
-                    saturation=(0.0, 3.0), hue=(0.0, 1.0))
+                    saturation=(0.0, 3.0), hue=(0.5, 0.5))
     ]
     finalize = [
         ToTensor(),
