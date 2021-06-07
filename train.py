@@ -28,6 +28,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def get_transform(random_crop_size, further_data_aug):
+    print(further_data_aug == False)
     initial = [
         RandomResizedCrop(random_crop_size, (0.5, 2.0)),
         RandomHorizontalFlip(),
@@ -41,8 +42,9 @@ def get_transform(random_crop_size, further_data_aug):
         ToTensor(),
         Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
-    train_transform = Compose(
-        initial+added+finalize if further_data_aug else initial+finalize)
+    train_list = initial+added+finalize if further_data_aug else initial+finalize
+    print(train_list)
+    train_transform = Compose(train_list)
     val_transform = Compose(
         [
             PadCenterCrop(size=512),
@@ -263,7 +265,7 @@ def add_arguments(parser):
         "--cuda", type=str, default="0", help="GPU ids used for training"
     )
     parser.add_argument(
-        "--use_gpu", type=bool, default=True, help="whether to user gpu for training"
+        "--use_gpu", type=str2bool, default=True, help="whether to user gpu for training"
     )
     parser.add_argument(
         "--pretrained_model_path",
@@ -288,14 +290,14 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "--use_amp",
-        type=str,
-        default="True",
+        type=str2bool,
+        default=True,
         help="use automatic mixed precision",
     )
     parser.add_argument(
         "--use_lrScheduler",
-        type=str,
-        default="False",
+        type=str2bool,
+        default=False,
         help="Permit the use of lr Scheduler",
     )
     parser.add_argument(
@@ -306,11 +308,22 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "--further_data_aug",
-        type=str,
-        default="False",
+        type=str2bool,
+        default=False,
         help="Permit use of new data augmentations for training",
     )
     return parser
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def get_optim(args, model):
@@ -334,6 +347,10 @@ def main(params):
     parser = argparse.ArgumentParser()
     parser = add_arguments(parser)
     args = parser.parse_args(params)
+
+    for arg in vars(args):
+        print(arg, getattr(args, arg), type(getattr(args, arg)))
+
     print("Training with following arguments:")
     pprint(vars(args), indent=4, compact=True)
     print("Running on: {}".format(device if args.use_gpu else torch.device('cpu')))
@@ -341,6 +358,8 @@ def main(params):
     train_path = args.data
     train_transform, val_transform = get_transform(
         args.random_crop_size, args.further_data_aug)
+
+    print(train_transform)
     dataset_train = VOC(train_path, image_set="train",
                         transform=train_transform)
     dataset_val = VOC(train_path, image_set="val", transform=val_transform)
