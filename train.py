@@ -28,7 +28,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def get_transform(random_crop_size, further_data_aug):
-    print(further_data_aug == False)
     initial = [
         RandomResizedCrop(random_crop_size, (0.5, 2.0)),
         RandomHorizontalFlip(),
@@ -42,9 +41,9 @@ def get_transform(random_crop_size, further_data_aug):
         ToTensor(),
         Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
-    train_list = initial+added+finalize if further_data_aug else initial+finalize
-    print(train_list)
-    train_transform = Compose(train_list)
+    train_transform = Compose(
+        initial+added+finalize if further_data_aug else initial+finalize
+    )
     val_transform = Compose(
         [
             PadCenterCrop(size=512),
@@ -347,10 +346,6 @@ def main(params):
     parser = argparse.ArgumentParser()
     parser = add_arguments(parser)
     args = parser.parse_args(params)
-
-    for arg in vars(args):
-        print(arg, getattr(args, arg), type(getattr(args, arg)))
-
     print("Training with following arguments:")
     pprint(vars(args), indent=4, compact=True)
     print("Running on: {}".format(device if args.use_gpu else torch.device('cpu')))
@@ -359,7 +354,6 @@ def main(params):
     train_transform, val_transform = get_transform(
         args.random_crop_size, args.further_data_aug)
 
-    print(train_transform)
     dataset_train = VOC(train_path, image_set="train",
                         transform=train_transform)
     dataset_val = VOC(train_path, image_set="val", transform=val_transform)
@@ -401,15 +395,15 @@ if __name__ == "__main__":
     params = [
         "--num_epochs", "30",
         "--batch_size", "32",
-        "--learning_rate", "0.001",
+        "--learning_rate", "0.005",
         "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
         "--random_crop_size", "320",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
-        "--save_model_path", "/root_drive/MyDrive/models/res50_30_001_sgd",
+        "--save_model_path", "/root_drive/MyDrive/models/res50_30_xxx_sgd",
         "--num_workers", "8",
-        "--validation_step", "1",
+        "--validation_step", "2",
         "--num_classes", "21",
         "--cuda", "0",
         "--use_gpu", "True",
