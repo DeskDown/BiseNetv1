@@ -34,8 +34,8 @@ def get_transform(random_crop_size, further_data_aug):
     ]
     added = [
         RandomRotation(5),
-        ColorJitter(brightness=(0.0, 3.0), contrast=(0.0, 3.0),
-                    saturation=(0.0, 3.0), hue=(0.5, 0.5))
+        # ColorJitter(brightness=(0.0, 3.0), contrast=(0.0, 3.0),
+        #             saturation=(0.0, 3.0), hue=(0.5, 0.5))
     ]
     finalize = [
         ToTensor(),
@@ -409,7 +409,7 @@ if __name__ == "__main__":
         "--use_gpu", "True",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
-        "--further_data_aug", "False",
+        "--further_data_aug", "True",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
