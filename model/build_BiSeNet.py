@@ -77,7 +77,7 @@ class FeatureFusionModule(torch.nn.Module):
         # resnet50  3328 = 256(from spatial path) + 1024(from context path) + 2048(from context path)
         # resnet18  1024 = 256(from spatial path) + 256(from context path) + 512(from context path)
         self.in_channels = in_channels
-
+        num_classes = 128  # fix output channels
         self.convblock = ConvBlock(
             in_channels=self.in_channels, out_channels=num_classes, stride=1
         )
@@ -171,7 +171,7 @@ class BiSeNet(torch.nn.Module):
 
         # build final convolution
         self.conv = nn.Conv2d(
-            in_channels=num_classes, out_channels=num_classes, kernel_size=1
+            in_channels=128, out_channels=num_classes, kernel_size=1
         )
 
         self.init_weight()
