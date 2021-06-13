@@ -15,12 +15,12 @@ from dataset.transform import *
 import contextlib
 from pprint import pprint
 import argparse
-import warnings
 from datetime import datetime
 import sys
 import os
-sys.path.append(os.getcwd())
+import warnings
 warnings.filterwarnings(action="ignore")
+sys.path.append(os.getcwd())
 
 
 # setup the device
@@ -398,7 +398,7 @@ if __name__ == "__main__":
         "--learning_rate", "0.005",
         "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
-        "--random_crop_size", "320",
+        "--random_crop_size", "400",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
         "--save_model_path", "/root_drive/MyDrive/models/res50_30_xxx_sgd",
