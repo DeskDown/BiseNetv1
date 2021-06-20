@@ -396,12 +396,12 @@ if __name__ == "__main__":
         "--num_epochs", "30",
         "--batch_size", "32",
         "--learning_rate", "0.005",
-        "--context_path", "resnet50",  # set resnet18, resnet50 or resnet101
+        "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
-        "--random_crop_size", "400",
+        "--random_crop_size", "320",
         "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
-        "--save_model_path", "/root_drive/MyDrive/models/res50_30_xxx_sgd",
+        "--save_model_path", "/root_drive/MyDrive/models/res18_30_.005p_sgd",
         "--num_workers", "8",
         "--validation_step", "2",
         "--num_classes", "21",
@@ -409,7 +409,7 @@ if __name__ == "__main__":
         "--use_gpu", "True",
         "--use_amp", "True",
         "--use_lrScheduler", "False",
-        "--further_data_aug", "True",
+        "--further_data_aug", "False",
         # "--pretrained_model_path", "/root_drive/MyDrive/models/res18_20_01_sgd/model.pth"
     ]
     print("started:", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
