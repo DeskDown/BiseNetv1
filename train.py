@@ -1,4 +1,4 @@
-from loss import DiceLoss
+    from loss import DiceLoss
 from utils import compute_global_accuracy, fast_hist, per_class_iu, poly_lr_scheduler
 import random
 import numpy as np
@@ -231,7 +231,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--checkpoint_step",
         type=int,
-        default=10,
+        default=2,
         help="How often to save checkpoints (epochs)",
     )
     parser.add_argument(
@@ -396,13 +396,13 @@ if __name__ == "__main__":
         "--num_epochs", "30",
         "--batch_size", "32",
         "--learning_rate", "0.005",
-        "--context_path", "resnet18",  # set resnet18, resnet50 or resnet101
+        "--context_path", "resnet101",  # set resnet18, resnet50 or resnet101
         "--optimizer", "sgd",
         "--random_crop_size", "320",
-        "--data", "/root_drive/MyDrive/data" if os.name != 'nt' else
+        "--data", "/content/root_drive/MyDrive/data" if os.name != 'nt' else
         r"C:\Users\rehma\Google Drive\data",
-        "--save_model_path", "/root_drive/MyDrive/models/res18_30_.005p_sgd",
-        "--num_workers", "8",
+        "--save_model_path", "/root_drive/MyDrive/models/res101_20_005_sgd",
+        "--num_workers", "12",
         "--validation_step", "2",
         "--num_classes", "21",
         "--cuda", "0",
