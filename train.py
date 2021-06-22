@@ -1,4 +1,4 @@
-    from loss import DiceLoss
+from loss import DiceLoss
 from utils import compute_global_accuracy, fast_hist, per_class_iu, poly_lr_scheduler
 import random
 import numpy as np
