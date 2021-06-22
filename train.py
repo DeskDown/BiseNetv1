@@ -151,21 +151,19 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
                 label = label.to(device)
 
             # forward
-            optimizer.zero_grad()
             if scaler:
                 cm = amp.autocast()
             else:
                 cm = dummy_cm()
 
             with cm:
+                optimizer.zero_grad()   
                 output, output_sup1, output_sup2 = model(data)
                 loss1 = loss_func(output, label)
                 loss2 = loss_func(output_sup1, label)
                 loss3 = loss_func(output_sup2, label)
                 loss = loss1 + loss2 + loss3
 
-            tq.update(args.batch_size)
-            tq.set_postfix(loss=f"{loss:.4f}", lr=lr)
             # backward
             if scaler:
                 scaler.scale(loss).backward()
@@ -177,6 +175,9 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, scaler):
             if args.use_lrScheduler:
                 scheduler.step(loss)
 
+
+            tq.update(args.batch_size)
+            tq.set_postfix(loss=f"{loss:.4f}", lr=lr)
             step += 1
             # log the progress
             writer.add_scalar("loss_step", loss, step)
